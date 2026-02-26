@@ -25,6 +25,13 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 
+// Process table entry (matches kernel copyout layout: pid, state)
+struct procinfo {
+  int pid;
+  int state;
+};
+int getprocinfo(struct procinfo *buf, int n);
+
 // ulib.c
 int stat(const char*, struct stat*);
 char* strcpy(char*, const char*);

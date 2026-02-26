@@ -11,10 +11,28 @@
 #define MAX_THREAD  4
 
 
+/* Saved registers for thread context switch (must match uthread_switch.S) */
+struct thread_context {
+  uint64 ra;
+  uint64 sp;
+  uint64 s0;
+  uint64 s1;
+  uint64 s2;
+  uint64 s3;
+  uint64 s4;
+  uint64 s5;
+  uint64 s6;
+  uint64 s7;
+  uint64 s8;
+  uint64 s9;
+  uint64 s10;
+  uint64 s11;
+};
+
 struct thread {
   char       stack[STACK_SIZE]; /* the thread's stack */
   int        state;             /* FREE, RUNNING, RUNNABLE */
-  // TODO: include context of thread
+  struct thread_context context; /* saved registers for switch */
 };
 struct thread all_thread[MAX_THREAD];
 struct thread *current_thread;
@@ -57,8 +75,7 @@ thread_schedule(void)
     next_thread->state = RUNNING;
     t = current_thread;
     current_thread = next_thread;
-    // TODO: invoke thread_switch to switch from t to next_thread:
-    // thread_switch(??, ??);
+    thread_switch((uint64)&t->context, (uint64)&next_thread->context);
   } else
     next_thread = 0;
 }
@@ -72,8 +89,11 @@ thread_create(void (*func)())
     if (t->state == FREE) break;
   }
   t->state = RUNNABLE;
-  // TODO: ensure `func` will be executed on its own stack
-  // ...
+  /* Set up stack so that when func returns, it goes to thread_exit.
+   * Frame: sp+8 holds fake return address (thread_exit). */
+  *(uint64*)(t->stack + STACK_SIZE - 8) = (uint64)thread_exit;
+  t->context.sp = (uint64)(t->stack + STACK_SIZE - 16);
+  t->context.ra = (uint64)func;
 }
 
 void 

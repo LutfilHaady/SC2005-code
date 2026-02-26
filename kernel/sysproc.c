@@ -91,3 +91,36 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// Copy process table (pid, state) to user buffer. buf points to array of
+// { int pid; int state; }. n = max entries. Returns number of entries written.
+uint64
+sys_getprocinfo(void)
+{
+  uint64 addr;
+  int n;
+  struct proc *p;
+  int count = 0;
+
+  argaddr(0, &addr);
+  argint(1, &n);
+  if(n <= 0)
+    return -1;
+
+  for(p = proc; p < &proc[NPROC] && count < n; p++) {
+    acquire(&p->lock);
+    if(p->state != UNUSED) {
+      int pid = p->pid;
+      int state = (int)p->state;
+      if(copyout(myproc()->pagetable, addr, (char*)&pid, sizeof(pid)) < 0 ||
+         copyout(myproc()->pagetable, addr + 4, (char*)&state, sizeof(state)) < 0) {
+        release(&p->lock);
+        return -1;
+      }
+      addr += 8;
+      count++;
+    }
+    release(&p->lock);
+  }
+  return count;
+}
